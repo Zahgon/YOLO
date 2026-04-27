@@ -60,20 +60,11 @@ class EMA(Callback):
             param.requires_grad = False
 
     def on_validation_start(self, trainer: "Trainer", pl_module: "LightningModule"):
-        self.batch_step_counter = 0
-        if self.ema_state_dict is None:
-            self.ema_state_dict = deepcopy(pl_module.model.state_dict())
-        pl_module.ema.load_state_dict(self.ema_state_dict)
+        pass
 
     @no_grad()
     def on_train_batch_end(self, trainer: "Trainer", pl_module: "LightningModule", *args, **kwargs) -> None:
-        self.batch_step_counter += 1
-        if self.batch_step_counter % trainer.accumulate_grad_batches:
-            return
-        self.step += 1
-        decay_factor = self.decay * (1 - exp(-self.step / self.tau))
-        for key, param in pl_module.model.state_dict().items():
-            self.ema_state_dict[key] = lerp(param.detach(), self.ema_state_dict[key], decay_factor)
+        pass
 
 
 class GradientAccumulation(Callback):
@@ -94,17 +85,13 @@ class GradientAccumulation(Callback):
         self.warmup_batches = int(self.warmup_epochs * batches_per_epoch)
 
     def on_train_epoch_start(self, trainer: "Trainer", pl_module: "LightningModule") -> None:
-        self.current_batch = trainer.global_step
+        pass
 
     def on_train_batch_start(self, trainer: "Trainer", pl_module: "LightningModule", *args, **kwargs) -> None:
-        if self.current_batch < self.warmup_batches:
-            current_accumulation = round(lerp(1, self.max_accumulation, self.current_batch, self.warmup_batches))
-        else:
-            current_accumulation = self.max_accumulation
-        trainer.accumulate_grad_batches = current_accumulation
+        pass
 
     def on_train_batch_end(self, trainer: "Trainer", pl_module: "LightningModule", *args, **kwargs) -> None:
-        self.current_batch += 1
+        pass
 
 
 def create_optimizer(model: YOLO, optim_cfg: OptimizerConfig) -> Optimizer:
@@ -126,27 +113,10 @@ def create_optimizer(model: YOLO, optim_cfg: OptimizerConfig) -> Optimizer:
     ]
 
     def next_epoch(self, batch_num, epoch_idx):
-        self.min_lr = self.max_lr
-        self.max_lr = [param["lr"] for param in self.param_groups]
-        # TODO: load momentum from config instead a fix number
-        #       0.937: Start Momentum
-        #       0.8  : Normal Momemtum
-        #       3    : The warm up epoch num
-        self.min_mom = lerp(0.8, 0.937, min(epoch_idx, 3), 3)
-        self.max_mom = lerp(0.8, 0.937, min(epoch_idx + 1, 3), 3)
-        self.batch_num = batch_num
-        self.batch_idx = 0
+        pass
 
     def next_batch(self):
-        self.batch_idx += 1
-        lr_dict = dict()
-        for lr_idx, param_group in enumerate(self.param_groups):
-            min_lr, max_lr = self.min_lr[lr_idx], self.max_lr[lr_idx]
-            param_group["lr"] = lerp(min_lr, max_lr, self.batch_idx, self.batch_num)
-            param_group["momentum"] = lerp(self.min_mom, self.max_mom, self.batch_idx, self.batch_num)
-            lr_dict[f"LR/{lr_idx}"] = param_group["lr"]
-            lr_dict[f"momentum/{lr_idx}"] = param_group["momentum"]
-        return lr_dict
+        pass
 
     optimizer_class.next_batch = next_batch
     optimizer_class.next_epoch = next_epoch
@@ -174,30 +144,11 @@ def create_scheduler(optimizer: Optimizer, schedule_cfg: SchedulerConfig) -> _LR
 
 
 def initialize_distributed() -> None:
-    rank = int(os.getenv("RANK", "0"))
-    local_rank = int(os.getenv("LOCAL_RANK", "0"))
-    world_size = int(os.getenv("WORLD_SIZE", "1"))
-
-    torch.cuda.set_device(local_rank)
-    dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
-    logger.info(f"🔢 Initialized process group; rank: {rank}, size: {world_size}")
-    return local_rank
+    pass
 
 
 def get_device(device_spec: Union[str, int, List[int]]) -> torch.device:
-    ddp_flag = False
-    if isinstance(device_spec, (list, ListConfig)):
-        ddp_flag = True
-        device_spec = initialize_distributed()
-    if torch.cuda.is_available() and "cuda" in str(device_spec):
-        return torch.device(device_spec), ddp_flag
-    if not torch.cuda.is_available():
-        if device_spec != "cpu":
-            logger.warning(f"❎ Device spec: {device_spec} not support, Choosing CPU instead")
-        return torch.device("cpu"), False
-
-    device = torch.device(device_spec)
-    return device, ddp_flag
+    pass
 
 
 class PostProcess:
@@ -235,13 +186,7 @@ def collect_prediction(predict_json: List, local_rank: int) -> List:
     Returns:
         List: The combined list of predictions from all processes if on rank 0, otherwise predict_json.
     """
-    if dist.is_initialized() and local_rank == 0:
-        all_predictions = [None for _ in range(dist.get_world_size())]
-        dist.gather_object(predict_json, all_predictions, dst=0)
-        predict_json = [item for sublist in all_predictions for item in sublist]
-    elif dist.is_initialized():
-        dist.gather_object(predict_json, None, dst=0)
-    return predict_json
+    pass
 
 
 def predicts_to_json(img_paths, predicts, rev_tensor):
@@ -249,18 +194,4 @@ def predicts_to_json(img_paths, predicts, rev_tensor):
     TODO: function document
     turn a batch of imagepath and predicts(n x 6 for each image) to a List of diction(Detection output)
     """
-    batch_json = []
-    for img_path, bboxes, box_reverse in zip(img_paths, predicts, rev_tensor):
-        scale, shift = box_reverse.split([1, 4])
-        bboxes = bboxes.clone()
-        bboxes[:, 1:5] = (bboxes[:, 1:5] - shift[None]) / scale[None]
-        bboxes[:, 1:5] = transform_bbox(bboxes[:, 1:5], "xyxy -> xywh")
-        for cls, *pos, conf in bboxes:
-            bbox = {
-                "image_id": int(Path(img_path).stem),
-                "category_id": IDX_TO_ID[int(cls)],
-                "bbox": [float(p) for p in pos],
-                "score": float(conf),
-            }
-            batch_json.append(bbox)
-    return batch_json
+    pass

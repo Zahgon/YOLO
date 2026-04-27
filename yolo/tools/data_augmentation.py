@@ -60,7 +60,7 @@ class PadAndResize:
         self.background_color = background_color
 
     def set_size(self, image_size: List[int]):
-        self.target_width, self.target_height = image_size
+        pass
 
     def __call__(self, image: Image, boxes):
         img_width, img_height = image.size
@@ -115,7 +115,7 @@ class Mosaic:
         self.parent = None
 
     def set_parent(self, parent):
-        self.parent = parent
+        pass
 
     def __call__(self, image, boxes):
         if torch.rand(1) >= self.prob:
@@ -161,7 +161,7 @@ class MixUp:
 
     def set_parent(self, parent):
         """Set the parent dataset object for accessing dataset methods."""
-        self.parent = parent
+        pass
 
     def __call__(self, image, boxes):
         if torch.rand(1) >= self.prob:

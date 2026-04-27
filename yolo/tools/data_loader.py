@@ -49,24 +49,7 @@ class YoloDataset(Dataset):
         Returns:
             dict: The loaded data from the cache for the specified phase.
         """
-        cache_path = dataset_path / f"{phase_name}.pache"
-
-        if not cache_path.exists():
-            logger.info(f":factory: Generating {phase_name} cache")
-            data = self.filter_data(dataset_path, phase_name, self.dynamic_shape)
-            torch.save(data, cache_path)
-        else:
-            try:
-                data = torch.load(cache_path, weights_only=False)
-            except Exception as e:
-                logger.error(
-                    f":rotating_light: Failed to load the cache at '{cache_path}'.\n"
-                    ":rotating_light: This may be caused by using cache from different other YOLO.\n"
-                    ":rotating_light: Please clean the cache and try running again."
-                )
-                raise e
-            logger.info(f":package: Loaded {phase_name} cache, there are {len(data)} data in total.")
-        return data
+        pass
 
     def filter_data(self, dataset_path: Path, phase_name: str, sort_image: bool = False) -> list:
         """
@@ -80,61 +63,7 @@ class YoloDataset(Dataset):
         Returns:
             list: A list of tuples, each containing the path to an image file and its associated segmentation as a tensor.
         """
-        images_path = dataset_path / "images" / phase_name
-        labels_path, data_type = locate_label_paths(dataset_path, phase_name)
-        file_list, adjust_path = dataset_path / f"{phase_name}.txt", False
-        if file_list.exists():
-            data_type, adjust_path = "txt", True
-            # TODO: should i sort by name?
-            with open(file_list, "r") as file:
-                images_list = [dataset_path / line.rstrip() for line in file]
-            labels_list = [
-                Path(str(image_path).replace("images", "labels")).with_suffix(".txt") for image_path in images_list
-            ]
-        else:
-            images_list = sorted([p.name for p in Path(images_path).iterdir() if p.is_file()])
-
-        if data_type == "json":
-            annotations_index, image_info_dict = create_image_metadata(labels_path)
-
-        data = []
-        valid_inputs = 0
-        for idx, image_name in enumerate(track(images_list, description="Filtering data")):
-            if not adjust_path and not image_name.lower().endswith((".jpg", ".jpeg", ".png")):
-                continue
-            image_id = Path(image_name).stem
-
-            if data_type == "json":
-                image_info = image_info_dict.get(image_id, None)
-                if image_info is None:
-                    continue
-                annotations = annotations_index.get(image_info["id"], [])
-                image_seg_annotations = scale_segmentation(annotations, image_info)
-            elif data_type == "txt":
-                label_path = labels_list[idx] if adjust_path else labels_path / f"{image_id}.txt"
-                if not label_path.is_file():
-                    image_seg_annotations = []
-                else:
-                    with open(label_path, "r") as file:
-                        image_seg_annotations = [list(map(float, line.strip().split())) for line in file]
-            else:
-                image_seg_annotations = []
-
-            labels = self.load_valid_labels(image_id, image_seg_annotations)
-            img_path = image_name if adjust_path else images_path / image_name
-            if sort_image:
-                with Image.open(img_path) as img:
-                    width, height = img.size
-            else:
-                width, height = 0, 1
-            data.append((img_path, labels, width / height))
-            if len(image_seg_annotations) != 0:
-                valid_inputs += 1
-
-        data = sorted(data, key=lambda x: x[2], reverse=True)
-
-        logger.info(f"Recorded {valid_inputs}/{len(images_list)} valid inputs")
-        return data
+        pass
 
     def load_valid_labels(self, label_path: str, seg_data_one_img: list) -> Union[Tensor, None]:
         """
@@ -148,40 +77,17 @@ class YoloDataset(Dataset):
         Returns:
             Tensor or None: A tensor of all valid bounding boxes if any are found; otherwise, None.
         """
-        bboxes = []
-        for seg_data in seg_data_one_img:
-            cls = seg_data[0]
-            points = np.array(seg_data[1:]).reshape(-1, 2).clip(0, 1)
-            valid_points = points[(points >= 0) & (points <= 1)].reshape(-1, 2)
-            if valid_points.size > 1:
-                bbox = torch.tensor([cls, *valid_points.min(axis=0), *valid_points.max(axis=0)])
-                bboxes.append(bbox)
-
-        if bboxes:
-            return torch.stack(bboxes)
-        else:
-            logger.warning(f"No valid BBox in {label_path}")
-            return torch.zeros((0, 5))
+        pass
 
     def get_data(self, idx):
-        img_path, bboxes = self.img_paths[idx], self.bboxes[idx]
-        valid_mask = bboxes[:, 0] != -1
-        with Image.open(img_path) as img:
-            img = img.convert("RGB")
-        return img, torch.from_numpy(bboxes[valid_mask]), img_path
+        pass
 
     def get_more_data(self, num: int = 1):
-        indices = torch.randint(0, len(self), (num,))
-        return [self.get_data(idx)[:2] for idx in indices]
+        pass
 
     def _update_image_size(self, idx: int) -> None:
         """Update image size based on dynamic shape and batch settings."""
-        batch_start_idx = (idx // self.batch_size) * self.batch_size
-        image_ratio = self.ratios[batch_start_idx].clip(1 / 3, 3)
-        shift = ((self.base_size / 32 * (image_ratio - 1)) // (image_ratio + 1)) * 32
-
-        self.image_size = [int(self.base_size + shift), int(self.base_size - shift)]
-        self.transform.pad_resize.set_size(self.image_size)
+        pass
 
     def __getitem__(self, idx) -> Tuple[Image.Image, Tensor, Tensor, List[str]]:
         img, bboxes, img_path = self.get_data(idx)
@@ -212,20 +118,7 @@ def collate_fn(batch: List[Tuple[Tensor, Tensor]]) -> Tuple[Tensor, List[Tensor]
             - A tensor of batched images.
             - A list of tensors, each corresponding to bboxes for each image in the batch.
     """
-    batch_size = len(batch)
-    target_sizes = [item[1].size(0) for item in batch]
-    # TODO: Improve readability of these process
-    # TODO: remove maxBbox or reduce loss function memory usage
-    batch_targets = torch.zeros(batch_size, min(max(target_sizes), 100), 5)
-    batch_targets[:, :, 0] = -1
-    for idx, target_size in enumerate(target_sizes):
-        batch_targets[idx, : min(target_size, 100)] = batch[idx][1][:100]
-
-    batch_images, _, batch_reverse, batch_path = zip(*batch)
-    batch_images = torch.stack(batch_images)
-    batch_reverse = torch.stack(batch_reverse)
-
-    return batch_size, batch_images, batch_targets, batch_reverse, batch_path
+    pass
 
 
 def create_dataloader(data_cfg: DataConfig, dataset_cfg: DatasetConfig, task: str = "train"):
@@ -265,53 +158,19 @@ class StreamDataLoader:
             self.thread.start()
 
     def load_source(self):
-        if self.source.is_dir():  # image folder
-            self.load_image_folder(self.source)
-        elif any(self.source.suffix.lower().endswith(ext) for ext in [".mp4", ".avi", ".mkv"]):  # Video file
-            self.load_video_file(self.source)
-        else:  # Single image
-            self.process_image(self.source)
+        pass
 
     def load_image_folder(self, folder):
-        folder_path = Path(folder)
-        for file_path in folder_path.rglob("*"):
-            if self.stop_event.is_set():
-                break
-            if file_path.suffix.lower() in [".jpg", ".jpeg", ".png", ".bmp"]:
-                self.process_image(file_path)
+        pass
 
     def process_image(self, image_path):
-        image = Image.open(image_path).convert("RGB")
-        if image is None:
-            raise ValueError(f"Error loading image: {image_path}")
-        self.process_frame(image)
+        pass
 
     def load_video_file(self, video_path):
-        import cv2
-
-        cap = cv2.VideoCapture(str(video_path))
-        while self.running:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            self.process_frame(frame)
-        cap.release()
+        pass
 
     def process_frame(self, frame):
-        if isinstance(frame, np.ndarray):
-            # TODO: we don't need cv2
-            import cv2
-
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame = Image.fromarray(frame)
-        origin_frame = frame
-        frame, _, rev_tensor = self.transform(frame, torch.zeros(0, 5))
-        frame = frame[None]
-        rev_tensor = rev_tensor[None]
-        if not self.is_stream:
-            self.queue.put((frame, rev_tensor, origin_frame))
-        else:
-            self.current_frame = (frame, rev_tensor, origin_frame)
+        pass
 
     def __iter__(self) -> Generator[Tensor, None, None]:
         return self
@@ -332,11 +191,7 @@ class StreamDataLoader:
                 raise StopIteration
 
     def stop(self):
-        self.running = False
-        if self.is_stream:
-            self.cap.release()
-        else:
-            self.thread.join(timeout=1)
+        pass
 
     def __len__(self):
         return self.queue.qsize() if not self.is_stream else 0

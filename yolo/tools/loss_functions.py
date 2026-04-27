@@ -18,7 +18,7 @@ class BCELoss(nn.Module):
         self.bce = BCEWithLogitsLoss(reduction="none")
 
     def forward(self, predicts_cls: Tensor, targets_cls: Tensor, cls_norm: Tensor) -> Any:
-        return self.bce(predicts_cls, targets_cls).sum() / cls_norm
+        pass
 
 
 class BoxLoss(nn.Module):
@@ -28,14 +28,7 @@ class BoxLoss(nn.Module):
     def forward(
         self, predicts_bbox: Tensor, targets_bbox: Tensor, valid_masks: Tensor, box_norm: Tensor, cls_norm: Tensor
     ) -> Any:
-        valid_bbox = valid_masks[..., None].expand(-1, -1, 4)
-        picked_predict = predicts_bbox[valid_bbox].view(-1, 4)
-        picked_targets = targets_bbox[valid_bbox].view(-1, 4)
-
-        iou = calculate_iou(picked_predict, picked_targets, "ciou").diag()
-        loss_iou = 1.0 - iou
-        loss_iou = (loss_iou * box_norm).sum() / cls_norm
-        return loss_iou
+        pass
 
 
 class DFLoss(nn.Module):
@@ -47,23 +40,7 @@ class DFLoss(nn.Module):
     def forward(
         self, predicts_anc: Tensor, targets_bbox: Tensor, valid_masks: Tensor, box_norm: Tensor, cls_norm: Tensor
     ) -> Any:
-        valid_bbox = valid_masks[..., None].expand(-1, -1, 4)
-        bbox_lt, bbox_rb = targets_bbox.chunk(2, -1)
-        targets_dist = torch.cat(((self.anchors_norm - bbox_lt), (bbox_rb - self.anchors_norm)), -1).clamp(
-            0, self.reg_max - 1.01
-        )
-        picked_targets = targets_dist[valid_bbox].view(-1)
-        picked_predict = predicts_anc[valid_bbox].view(-1, self.reg_max)
-
-        label_left, label_right = picked_targets.floor(), picked_targets.floor() + 1
-        weight_left, weight_right = label_right - picked_targets, picked_targets - label_left
-
-        loss_left = F.cross_entropy(picked_predict, label_left.to(torch.long), reduction="none")
-        loss_right = F.cross_entropy(picked_predict, label_right.to(torch.long), reduction="none")
-        loss_dfl = loss_left * weight_left + loss_right * weight_right
-        loss_dfl = loss_dfl.view(-1, 4).mean(-1)
-        loss_dfl = (loss_dfl * box_norm).sum() / cls_norm
-        return loss_dfl
+        pass
 
 
 class YOLOLoss:
@@ -81,9 +58,7 @@ class YOLOLoss:
         """
         separate anchor and bbouding box
         """
-        anchors_cls, anchors_box = torch.split(anchors, (self.class_num, 4), dim=-1)
-        anchors_box = anchors_box / self.vec2box.scaler[None, :, None]
-        return anchors_cls, anchors_box
+        pass
 
     def __call__(self, predicts: List[Tensor], targets: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         predicts_cls, predicts_anc, predicts_box = predicts

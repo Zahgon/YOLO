@@ -30,99 +30,19 @@ class YOLO(nn.Module):
         self.build_model(model_cfg.model)
 
     def build_model(self, model_arch: Dict[str, List[Dict[str, Dict[str, Dict]]]]):
-        self.layer_index = {}
-        output_dim, layer_idx = [3], 1
-        logger.info(f":tractor: Building YOLO")
-        for arch_name in model_arch:
-            if model_arch[arch_name]:
-                logger.info(f"  :building_construction:  Building {arch_name}")
-            for layer_idx, layer_spec in enumerate(model_arch[arch_name], start=layer_idx):
-                layer_type, layer_info = next(iter(layer_spec.items()))
-                layer_args = layer_info.get("args", {})
-
-                # Get input source
-                source = self.get_source_idx(layer_info.get("source", -1), layer_idx)
-
-                # Find in channels
-                if any(module in layer_type for module in ["Conv", "ELAN", "ADown", "AConv", "CBLinear"]):
-                    layer_args["in_channels"] = output_dim[source]
-                if any(module in layer_type for module in ["Detection", "Segmentation", "Classification"]):
-                    if isinstance(source, list):
-                        layer_args["in_channels"] = [output_dim[idx] for idx in source]
-                    else:
-                        layer_args["in_channel"] = output_dim[source]
-                    layer_args["num_classes"] = self.num_classes
-                    layer_args["reg_max"] = self.reg_max
-
-                # create layers
-                layer = self.create_layer(layer_type, source, layer_info, **layer_args)
-                self.model.append(layer)
-
-                if layer.tags:
-                    if layer.tags in self.layer_index:
-                        raise ValueError(f"Duplicate tag '{layer_info['tags']}' found.")
-                    self.layer_index[layer.tags] = layer_idx
-
-                out_channels = self.get_out_channels(layer_type, layer_args, output_dim, source)
-                output_dim.append(out_channels)
-                setattr(layer, "out_c", out_channels)
-            layer_idx += 1
+        pass
 
     def forward(self, x, external: Optional[Dict] = None, shortcut: Optional[str] = None):
-        y = {0: x, **(external or {})}
-        output = dict()
-        for index, layer in enumerate(self.model, start=1):
-            if isinstance(layer.source, list):
-                model_input = [y[idx] for idx in layer.source]
-            else:
-                model_input = y[layer.source]
-
-            external_input = {source_name: y[source_name] for source_name in layer.external}
-
-            x = layer(model_input, **external_input)
-            y[-1] = x
-            if layer.usable:
-                y[index] = x
-            if layer.output:
-                output[layer.tags] = x
-                if layer.tags == shortcut:
-                    return output
-        return output
+        pass
 
     def get_out_channels(self, layer_type: str, layer_args: dict, output_dim: list, source: Union[int, list]):
-        if hasattr(layer_args, "out_channels"):
-            return layer_args["out_channels"]
-        if layer_type == "CBFuse":
-            return output_dim[source[-1]]
-        if isinstance(source, int):
-            return output_dim[source]
-        if isinstance(source, list):
-            return sum(output_dim[idx] for idx in source)
+        pass
 
     def get_source_idx(self, source: Union[ListConfig, str, int], layer_idx: int):
-        if isinstance(source, ListConfig):
-            return [self.get_source_idx(index, layer_idx) for index in source]
-        if isinstance(source, str):
-            source = self.layer_index[source]
-        if source < -1:
-            source += layer_idx
-        if source > 0:  # Using Previous Layer's Output
-            self.model[source - 1].usable = True
-        return source
+        pass
 
     def create_layer(self, layer_type: str, source: Union[int, list], layer_info: Dict, **kwargs) -> YOLOLayer:
-        if layer_type in self.layer_map:
-            layer = self.layer_map[layer_type](**kwargs)
-            setattr(layer, "layer_type", layer_type)
-            setattr(layer, "source", source)
-            setattr(layer, "in_c", kwargs.get("in_channels", None))
-            setattr(layer, "output", layer_info.get("output", False))
-            setattr(layer, "tags", layer_info.get("tags", None))
-            setattr(layer, "external", layer_info.get("external", []))
-            setattr(layer, "usable", 0)
-            return layer
-        else:
-            raise ValueError(f"Unsupported layer type: {layer_type}")
+        pass
 
     def save_load_weights(self, weights: Union[Path, OrderedDict]):
         """

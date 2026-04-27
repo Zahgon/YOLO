@@ -30,7 +30,7 @@ class Conv(nn.Module):
         self.act = create_activation_function(activation)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.act(self.bn(self.conv(x)))
+        pass
 
 
 class Pool(nn.Module):
@@ -43,7 +43,7 @@ class Pool(nn.Module):
         self.pool = pool_classes[method.lower()](kernel_size=kernel_size, **kwargs)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.pool(x)
+        pass
 
 
 class Concat(nn.Module):
@@ -52,7 +52,7 @@ class Concat(nn.Module):
         self.dim = dim
 
     def forward(self, x):
-        return torch.cat(x, self.dim)
+        pass
 
 
 # ----------- Detection Class ----------- #
@@ -84,10 +84,7 @@ class Detection(nn.Module):
         self.class_conv[-1].bias.data.fill_(-10)  # TODO: math.log(5 * 4 ** idx / 80 ** 3)
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        anchor_x = self.anchor_conv(x)
-        class_x = self.class_conv(x)
-        anchor_x, vector_x = self.anc2vec(anchor_x)
-        return class_x, anchor_x, vector_x
+        pass
 
 
 class IDetection(nn.Module):
@@ -105,11 +102,7 @@ class IDetection(nn.Module):
         self.implicit_m = ImplicitM(out_channels)
 
     def forward(self, x):
-        x = self.implicit_a(x)
-        x = self.head_conv(x)
-        x = self.implicit_m(x)
-
-        return x
+        pass
 
 
 class MultiheadDetection(nn.Module):
@@ -127,7 +120,7 @@ class MultiheadDetection(nn.Module):
         )
 
     def forward(self, x_list: List[torch.Tensor]) -> List[torch.Tensor]:
-        return [head(x) for x, head in zip(x_list, self.heads)]
+        pass
 
 
 # ----------- Segmentation Class ----------- #
@@ -142,8 +135,7 @@ class Segmentation(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        x = self.mask_conv(x)
-        return x
+        pass
 
 
 class MultiheadSegmentation(nn.Module):
@@ -160,7 +152,7 @@ class MultiheadSegmentation(nn.Module):
         self.heads.append(Conv(proto_channels, num_maskes, 1))
 
     def forward(self, x_list: List[torch.Tensor]) -> List[torch.Tensor]:
-        return [head(x) for x, head in zip(x_list, self.heads)]
+        pass
 
 
 class Anchor2Vec(nn.Module):
@@ -171,10 +163,7 @@ class Anchor2Vec(nn.Module):
         self.anc2vec.weight = nn.Parameter(reverse_reg, requires_grad=False)
 
     def forward(self, anchor_x: Tensor) -> Tensor:
-        anchor_x = rearrange(anchor_x, "B (P R) h w -> B R P h w", P=4)
-        vector_x = anchor_x.softmax(dim=1)
-        vector_x = self.anc2vec(vector_x)[:, 0]
-        return anchor_x, vector_x
+        pass
 
 
 # ----------- Classification Class ----------- #
@@ -186,9 +175,7 @@ class Classification(nn.Module):
         self.head = nn.Linear(neck_channels, num_classes)
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        x = self.pool(self.conv(x))
-        x = self.head(x.flatten(start_dim=1))
-        return x
+        pass
 
 
 # ----------- Backbone Class ----------- #
@@ -210,7 +197,7 @@ class RepConv(nn.Module):
         self.conv2 = Conv(in_channels, out_channels, 1, activation=False, **kwargs)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.act(self.conv1(x) + self.conv2(x))
+        pass
 
 
 class Bottleneck(nn.Module):
@@ -239,8 +226,7 @@ class Bottleneck(nn.Module):
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        y = self.conv2(self.conv1(x))
-        return x + y if self.residual else y
+        pass
 
 
 class RepNCSP(nn.Module):
@@ -269,9 +255,7 @@ class RepNCSP(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x1 = self.bottleneck(self.conv1(x))
-        x2 = self.conv2(x)
-        return self.conv3(torch.cat((x1, x2), dim=1))
+        pass
 
 
 class ELAN(nn.Module):
@@ -297,11 +281,7 @@ class ELAN(nn.Module):
         self.conv4 = Conv(part_channels + 2 * process_channels, out_channels, 1, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x1, x2 = self.conv1(x).chunk(2, 1)
-        x3 = self.conv2(x2)
-        x4 = self.conv3(x3)
-        x5 = self.conv4(torch.cat([x1, x2, x3, x4], dim=1))
-        return x5
+        pass
 
 
 class RepNCSPELAN(nn.Module):
@@ -335,11 +315,7 @@ class RepNCSPELAN(nn.Module):
         self.conv4 = Conv(part_channels + 2 * process_channels, out_channels, 1, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x1, x2 = self.conv1(x).chunk(2, 1)
-        x3 = self.conv2(x2)
-        x4 = self.conv3(x3)
-        x5 = self.conv4(torch.cat([x1, x2, x3, x4], dim=1))
-        return x5
+        pass
 
 
 class AConv(nn.Module):
@@ -352,9 +328,7 @@ class AConv(nn.Module):
         self.conv = Conv(in_channels, out_channels, **mid_layer)
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.avg_pool(x)
-        x = self.conv(x)
-        return x
+        pass
 
 
 class ADown(nn.Module):
@@ -371,12 +345,7 @@ class ADown(nn.Module):
         self.conv2 = Conv(half_in_channels, half_out_channels, kernel_size=1)
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.avg_pool(x)
-        x1, x2 = x.chunk(2, dim=1)
-        x1 = self.conv1(x1)
-        x2 = self.max_pool(x2)
-        x2 = self.conv2(x2)
-        return torch.cat((x1, x2), dim=1)
+        pass
 
 
 class CBLinear(nn.Module):
@@ -389,8 +358,7 @@ class CBLinear(nn.Module):
         self.out_channels = list(out_channels)
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        x = self.conv(x)
-        return x.split(self.out_channels, dim=1)
+        pass
 
 
 class SPPCSPConv(nn.Module):
@@ -409,14 +377,7 @@ class SPPCSPConv(nn.Module):
         self.merge_conv = Conv(2 * neck_channels, out_channels, 1)
 
     def forward(self, x):
-        features = [self.pre_conv(x)]
-        for pool in self.pools:
-            features.append(pool(features[-1]))
-        features = torch.cat(features, dim=1)
-        y1 = self.post_conv(features)
-        y2 = self.short_conv(x)
-        y = torch.cat((y1, y2), dim=1)
-        return self.merge_conv(y)
+        pass
 
 
 class SPPELAN(nn.Module):
@@ -431,10 +392,7 @@ class SPPELAN(nn.Module):
         self.conv5 = Conv(4 * neck_channels, out_channels, kernel_size=1)
 
     def forward(self, x: Tensor) -> Tensor:
-        features = [self.conv1(x)]
-        for pool in self.pools:
-            features.append(pool(features[-1]))
-        return self.conv5(torch.cat(features, dim=1))
+        pass
 
 
 class UpSample(nn.Module):
@@ -443,7 +401,7 @@ class UpSample(nn.Module):
         self.UpSample = nn.Upsample(**kwargs)
 
     def forward(self, x):
-        return self.UpSample(x)
+        pass
 
 
 class CBFuse(nn.Module):
@@ -453,12 +411,7 @@ class CBFuse(nn.Module):
         self.mode = mode
 
     def forward(self, x_list: List[torch.Tensor]) -> List[Tensor]:
-        target = x_list[-1]
-        target_size = target.shape[2:]  # Batch, Channel, H, W
-
-        res = [F.interpolate(x[pick_id], size=target_size, mode=self.mode) for pick_id, x in zip(self.idx, x_list)]
-        out = torch.stack(res + [target]).sum(dim=0)
-        return out
+        pass
 
 
 class ImplicitA(nn.Module):
@@ -476,7 +429,7 @@ class ImplicitA(nn.Module):
         nn.init.normal_(self.implicit, mean=self.mean, std=self.std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.implicit + x
+        pass
 
 
 class ImplicitM(nn.Module):
@@ -494,7 +447,7 @@ class ImplicitM(nn.Module):
         nn.init.normal_(self.implicit, mean=self.mean, std=self.std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.implicit * x
+        pass
 
 
 class DConv(nn.Module):
@@ -507,17 +460,10 @@ class DConv(nn.Module):
         self.D = Conv(atoms, in_channels, 1, activation=False)
 
     def PONO(self, x):
-        mean = x.mean(dim=1, keepdim=True)
-        std = x.std(dim=1, keepdim=True)
-        x = (x - mean) / (std + 1e-5)
-        return x
+        pass
 
     def forward(self, r):
-        x = self.CG(r)
-        x = self.GIE(x)
-        x = self.PONO(x)
-        x = self.D(x)
-        return self.alpha * x + (1 - self.alpha) * r
+        pass
 
 
 class RepNCSPELAND(RepNCSPELAN):
@@ -526,5 +472,4 @@ class RepNCSPELAND(RepNCSPELAN):
         self.dconv = DConv(atoms=atoms, **rd_args)
 
     def forward(self, x):
-        x = super().forward(x)
-        return self.dconv(x)
+        pass

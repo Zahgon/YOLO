@@ -160,17 +160,7 @@ class BoxMatcher:
             [batch x targets x anchors]: A boolean tensor indicates if target bounding box overlaps
             with the anchors, and the anchor is able to predict the target.
         """
-        x_min, y_min, x_max, y_max = target_bbox[:, :, None].unbind(3)
-        anchors = self.vec2box.anchor_grid[None, None]  # add a axis at first, second dimension
-        anchors_x, anchors_y = anchors.unbind(dim=3)
-        x_min_dist, x_max_dist = anchors_x - x_min, x_max - anchors_x
-        y_min_dist, y_max_dist = anchors_y - y_min, y_max - anchors_y
-        targets_dist = torch.stack((x_min_dist, y_min_dist, x_max_dist, y_max_dist), dim=-1)
-        targets_dist /= self.vec2box.scaler[None, None, :, None]  # (1, 1, anchors, 1)
-        min_reg_dist, max_reg_dist = targets_dist.amin(dim=-1), targets_dist.amax(dim=-1)
-        target_on_anchor = min_reg_dist >= 0
-        target_in_reg_max = max_reg_dist <= self.reg_max - 1.01
-        return target_on_anchor & target_in_reg_max
+        pass
 
     def get_cls_matrix(self, predict_cls: Tensor, target_cls: Tensor) -> Tensor:
         """
@@ -183,10 +173,7 @@ class BoxMatcher:
         Returns:
             [batch x targets x anchors]: The probabilities from `pred_cls` corresponding to the class indices specified in `target_cls`.
         """
-        predict_cls = predict_cls.transpose(1, 2)
-        target_cls = target_cls.expand(-1, -1, predict_cls.size(2))
-        cls_probabilities = torch.gather(predict_cls, 1, target_cls)
-        return cls_probabilities
+        pass
 
     def get_iou_matrix(self, predict_bbox, target_bbox) -> Tensor:
         """
@@ -198,7 +185,7 @@ class BoxMatcher:
         Returns:
             [batch x targets x predicts]: The IoU scores between each target and predicted.
         """
-        return calculate_iou(target_bbox, predict_bbox, self.iou).clamp(0, 1)
+        pass
 
     def filter_topk(self, target_matrix: Tensor, grid_mask: Tensor, topk: int = 10) -> Tuple[Tensor, Tensor]:
         """
@@ -213,12 +200,7 @@ class BoxMatcher:
             topk_targets [batch x targets x anchors]: Only leave the topk targets for each anchor
             topk_mask [batch x targets x anchors]: A boolean mask indicating the top-k scores' positions.
         """
-        masked_target_matrix = grid_mask * target_matrix
-        values, indices = masked_target_matrix.topk(topk, dim=-1)
-        topk_targets = torch.zeros_like(target_matrix, device=target_matrix.device)
-        topk_targets.scatter_(dim=-1, index=indices, src=values)
-        topk_mask = topk_targets > 0
-        return topk_targets, topk_mask
+        pass
 
     def ensure_one_anchor(self, target_matrix: Tensor, topk_mask: tensor) -> Tensor:
         """
@@ -233,13 +215,7 @@ class BoxMatcher:
         Returns:
             topk_mask [batch x targets x anchors]: A boolean mask indicating the updated top-k scores' positions.
         """
-        values, indices = target_matrix.max(dim=-1)
-        best_anchor_mask = torch.zeros_like(target_matrix, dtype=torch.bool)
-        best_anchor_mask.scatter_(-1, index=indices[..., None], src=~best_anchor_mask)
-        matched_anchor_num = torch.sum(topk_mask, dim=-1)
-        target_without_anchor = (matched_anchor_num == 0) & (values > 0)
-        topk_mask = torch.where(target_without_anchor[..., None], best_anchor_mask, topk_mask)
-        return topk_mask
+        pass
 
     def filter_duplicates(self, iou_mat: Tensor, topk_mask: Tensor):
         """
@@ -254,14 +230,7 @@ class BoxMatcher:
             valid_mask [batch x anchors]: Mask indicating the validity of each anchor
             topk_mask [batch x targets x anchors]: A boolean mask indicating the updated top-k scores' positions.
         """
-        duplicates = (topk_mask.sum(1, keepdim=True) > 1).repeat([1, topk_mask.size(1), 1])
-        masked_iou_mat = topk_mask * iou_mat
-        best_indices = masked_iou_mat.argmax(1)[:, None, :]
-        best_target_mask = torch.zeros_like(duplicates, dtype=torch.bool)
-        best_target_mask.scatter_(1, index=best_indices, src=~best_target_mask)
-        topk_mask = torch.where(duplicates, best_target_mask, topk_mask)
-        unique_indices = topk_mask.to(torch.uint8).argmax(dim=1)
-        return unique_indices[..., None], topk_mask.any(dim=1), topk_mask
+        pass
 
     def __call__(self, target: Tensor, predict: Tuple[Tensor]) -> Tuple[Tensor, Tensor]:
         """Matches each target to the most suitable anchor.
@@ -351,15 +320,7 @@ class Vec2Box:
         self.anchor_grid, self.scaler = anchor_grid.to(device), scaler.to(device)
 
     def create_auto_anchor(self, model: YOLO, image_size):
-        W, H = image_size
-        # TODO: need accelerate dummy test
-        dummy_input = torch.zeros(1, 3, H, W)
-        dummy_output = model(dummy_input)
-        strides = []
-        for predict_head in dummy_output["Main"]:
-            _, _, *anchor_num = predict_head[2].shape
-            strides.append(W // anchor_num[1])
-        return strides
+        pass
 
     def update(self, image_size):
         """
@@ -406,14 +367,7 @@ class Anc2Box:
         self.class_num = model.num_classes
 
     def create_auto_anchor(self, model: YOLO, image_size):
-        W, H = image_size
-        dummy_input = torch.zeros(1, 3, H, W).to(self.device)
-        dummy_output = model(dummy_input)
-        strides = []
-        for predict_head in dummy_output["Main"]:
-            _, _, *anchor_num = predict_head.shape
-            strides.append(W // anchor_num[1])
-        return strides
+        pass
 
     def generate_anchors(self, image_size: List[int]):
         anchor_grids = []
